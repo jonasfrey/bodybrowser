@@ -136,68 +136,54 @@ document.body.appendChild(
     )
 );
 // //readme.md:end
+// Get the canvas element
+const canvas = document.getElementById('renderCanvas');
 
-import * as THREE from 'three';
-import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { VRButton } from 'three/addons/webxr/VRButton.js';
-// Scene
-const scene = new THREE.Scene();
-window.scene = scene
-// Camera
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(100, 180, 5);
-window.camera = camera
-// Renderer
-const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('canvas') });
-renderer.setSize(window.innerWidth, window.innerHeight);
+// Generate the Babylon.js engine
+const engine = new BABYLON.Engine(canvas, true);
 
-const axesHelper = new THREE.AxesHelper( 5 );
-scene.add( axesHelper );
+// Create the scene
+const createScene = () => {
+    const scene = new BABYLON.Scene(engine);
 
-// Light
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(5, 5, 5).normalize();
-scene.add(light);
+    // Create a camera and position it
+    const camera = new BABYLON.ArcRotateCamera("camera1", Math.PI / 2, Math.PI / 2, 2, new BABYLON.Vector3(0, 1, 0), scene);
+    camera.setPosition(new BABYLON.Vector3(1, 1, 1));
+    camera.attachControl(canvas, true);
 
-// Controls
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; // for an improved experience
-controls.dampingFactor = 0.05;
-controls.screenSpacePanning = false;
-controls.maxPolarAngle = Math.PI / 2;
+    // Add a light
+    const light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(1, 1, 0), scene);
 
-//vr 
-document.body.appendChild( VRButton.createButton( renderer ) );
-renderer.xr.enabled = true;
+    // Load the GLB model
+    BABYLON.SceneLoader.ImportMesh("", "./3d_files/", "Skelet.glb", scene, function (meshes) {
+        const model = meshes[0]; // Assuming the model is the first mesh
+        model.scaling = new BABYLON.Vector3(1, 1, 1); // Scale the model if needed
 
-// Load FBX model
-let model;
-const loader = new FBXLoader();
-loader.load('./3d_files/SkeletalSystem100.fbx', function (object) {
-    model = object;
-    scene.add(model);
-}, undefined, function (error) {
-    console.error(error);
+        // Animation loop to make the model spin
+        scene.onBeforeRenderObservable.add(() => {
+            model.rotation.y += 0.01;
+        });
+    }, null, function (scene, message) {
+        console.error(message);
+    });
+
+    // Enable VR
+    BABYLON.WebXRDefaultExperience.CreateAsync(scene).then((xr) => {
+        console.log("VR experience created");
+    });
+
+    return scene;
+};
+
+// Create the scene
+const scene = createScene();
+
+// Register a render loop to repeatedly render the scene
+engine.runRenderLoop(() => {
+    scene.render();
 });
 
-// Animation loop
-function animate() {
-    requestAnimationFrame(animate);
-    
-    if (model) {
-        model.rotation.y += 0.01; // Adjust the rotation speed as needed
-    }
-    
-    controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
-    
-    renderer.render(scene, camera);
-}
-animate();
-
-// Handle window resize
-window.addEventListener('resize', function () {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+// Watch for browser/canvas resize events
+window.addEventListener('resize', () => {
+    engine.resize();
 });

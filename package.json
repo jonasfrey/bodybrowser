@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@babylonjs/core": "^7.16.0",
+    "@babylonjs/inspector": "^7.16.0",
+    "@babylonjs/loaders": "^7.16.0"
+  }
+}
