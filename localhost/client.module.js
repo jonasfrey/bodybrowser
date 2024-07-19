@@ -95,95 +95,141 @@ let o_state = {
 window.o_state = o_state
 
 
-// //readme.md:start
-document.body.appendChild(
-    await f_o_html__and_make_renderable(
-        {
-            s_tag: 'div', 
-            class: "app",
-            a_o: [
-                Object.assign(
-                    o_state, 
-                    {
-                        o_js__a_o_mod: {
-                            f_o_jsh: ()=>{
-                                return {
-                                    class: "a_o_msg",
-                                    a_o: [
-                                        o_state.a_o_msg.map(o=>{
-                                            return {
-                                                style: [
-                                                    'display:flex',
-                                                    'flex-direction:row',
-                                                    `justify-content: ${(o.s_uuidv4 == o_state.s_uuidv4) ? 'end' : 'start'}`,
-                                                    'align-items:end'
-                                                ].join(';'),
-                                                a_o: [
-                                                    {
-                                                        innerText: o.s_msg
-                                                    }
-                                                ]
-                                            }
-                                        })
-                                    ]
-                                }
-                            }
-                        }
-                    }
-                ).o_js__a_o_mod,
-            ]
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
+
+// Scene
+const scene = new THREE.Scene();
+
+// Camera
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(1, 1, 1);
+
+// Renderer
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.xr.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+// VR Button
+document.body.appendChild(VRButton.createButton(renderer));
+
+// Light
+const ambientLight = new THREE.AmbientLight(0x404040, 2); // Soft white ambient light
+scene.add(ambientLight);
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+directionalLight.position.set(5, 5, 5);
+scene.add(directionalLight);
+
+// Controls
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.screenSpacePanning = false;
+controls.maxPolarAngle = Math.PI / 2;
+
+// Load FBX model
+let model;
+const loader = new FBXLoader();
+loader.load('./3d_files/SkeletalSystem100.fbx', function (object) {
+    model = object;
+    window.model = model;
+    model.scale.set(0.01, 0.01, 0.01); // Scale down the model
+    scene.add(model);
+}, undefined, function (error) {
+    console.error(error);
+});
+
+// VR controller setup
+let controller1, controller2;
+let initialGrabPosition = new THREE.Vector3();
+let initialModelPosition = new THREE.Vector3();
+let isGrabbing = false;
+
+function initControllers() {
+    controller1 = renderer.xr.getController(0);
+    controller2 = renderer.xr.getController(1);
+    scene.add(controller1);
+    scene.add(controller2);
+
+    const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
+    const line = new THREE.Line(geometry);
+    line.name = 'line';
+    line.scale.z = 0.05;
+
+    controller1.add(line.clone());
+    controller2.add(line.clone());
+
+    controller1.addEventListener('selectstart', onSelectStart);
+    controller1.addEventListener('selectend', onSelectEnd);
+    controller2.addEventListener('selectstart', onSelectStart);
+    controller2.addEventListener('selectend', onSelectEnd);
+}
+
+function onSelectStart(event) {
+    alert('select start ');
+    isGrabbing = true;
+    initialGrabPosition = controller1.position.clone();
+    if (model) {
+        initialModelPosition = model.position.clone();
+    }
+    console.log({ initialGrabPosition, initialModelPosition });
+}
+
+function onSelectEnd(event) {
+    alert('select end');
+    isGrabbing = false;
+}
+
+// Floor
+const floorGeometry = new THREE.PlaneGeometry(100, 100);
+const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x808080 });
+const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -0.5;
+scene.add(floor);
+
+// Skybox
+const skyGeometry = new THREE.SphereGeometry(500, 60, 40);
+const skyMaterial = new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide }); // Light blue color
+const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+scene.add(sky);
+
+// Animation loop
+renderer.setAnimationLoop(function () {
+    if (model) {
+        model.rotation.y += 0.01; // Adjust the rotation speed as needed
+
+        if (isGrabbing) {
+            const controllerPosition = controller1.position;
+            const delta = new THREE.Vector3().subVectors(controllerPosition, initialGrabPosition);
+            console.log({
+                controllerPosition,
+                initialGrabPosition,
+                initialModelPosition,
+                delta,
+            });
+            model.position.set(
+                initialModelPosition.x + delta.x,
+                initialModelPosition.y + delta.y,
+                initialModelPosition.z + delta.z,
+            );
         }
-    )
-);
-// //readme.md:end
-// Get the canvas element
-const canvas = document.getElementById('renderCanvas');
+    }
 
-// Generate the Babylon.js engine
-const engine = new BABYLON.Engine(canvas, true);
+    controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
 
-// Create the scene
-const createScene = () => {
-    const scene = new BABYLON.Scene(engine);
-
-    // Create a camera and position it
-    const camera = new BABYLON.ArcRotateCamera("camera1", Math.PI / 2, Math.PI / 2, 2, new BABYLON.Vector3(0, 1, 0), scene);
-    camera.setPosition(new BABYLON.Vector3(1, 1, 1));
-    camera.attachControl(canvas, true);
-
-    // Add a light
-    const light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(1, 1, 0), scene);
-
-    // Load the GLB model
-    BABYLON.SceneLoader.ImportMesh("", "./3d_files/", "Skelet.glb", scene, function (meshes) {
-        const model = meshes[0]; // Assuming the model is the first mesh
-        model.scaling = new BABYLON.Vector3(1, 1, 1); // Scale the model if needed
-
-        // Animation loop to make the model spin
-        scene.onBeforeRenderObservable.add(() => {
-            model.rotation.y += 0.01;
-        });
-    }, null, function (scene, message) {
-        console.error(message);
-    });
-
-    // Enable VR
-    BABYLON.WebXRDefaultExperience.CreateAsync(scene).then((xr) => {
-        console.log("VR experience created");
-    });
-
-    return scene;
-};
-
-// Create the scene
-const scene = createScene();
-
-// Register a render loop to repeatedly render the scene
-engine.runRenderLoop(() => {
-    scene.render();
+    renderer.render(scene, camera);
 });
 
-// Watch for browser/canvas resize events
-window.addEventListener('resize', () => {
-    engine.resize();
+// Handle window resize
+window.addEventListener('resize', function () {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+initControllers();
