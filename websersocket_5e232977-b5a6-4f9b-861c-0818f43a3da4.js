@@ -17,8 +17,8 @@ const b_deno_deploy = Deno.env.get("DENO_DEPLOYMENT_ID") !== undefined;
 
 let a_o_ws_client = []
 
-let o_config = await f_o_config();
-console.log({o_config});
+// let o_config = await f_o_config();
+// console.log({o_config});
 
 let f_handler = async function(o_request){
 
