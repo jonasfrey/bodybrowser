@@ -103,142 +103,144 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // import { Stats } from "./stats.module.js";
 
 // Scene
-const scene = new THREE.Scene();
+const o_scene = new THREE.Scene();
 
 // Camera
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(1, 1, 1);
+const o_camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+o_camera.position.set(1, 1, 1);
 
 // Renderer
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.xr.enabled = true;
-document.body.appendChild(renderer.domElement);
+const o_renderer = new THREE.WebGLRenderer({ antialias: true });
+o_renderer.setSize(window.innerWidth, window.innerHeight);
+o_renderer.xr.enabled = true;
+document.body.appendChild(o_renderer.domElement);
 
 // VR Button
-document.body.appendChild(VRButton.createButton(renderer));
+document.body.appendChild(VRButton.createButton(o_renderer));
 
-// Light
-const ambientLight = new THREE.AmbientLight(0x404040, 2); // Soft white ambient light
-scene.add(ambientLight);
+// Lights
+const o_light_ambient = new THREE.AmbientLight(0x404040, 2); // Soft white ambient light
+o_scene.add(o_light_ambient);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-directionalLight.position.set(5, 5, 5);
-scene.add(directionalLight);
+const o_light_directional = new THREE.DirectionalLight(0xffffff, 1);
+o_light_directional.position.set(5, 5, 5);
+o_scene.add(o_light_directional);
 
 // Controls
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-controls.screenSpacePanning = false;
-controls.maxPolarAngle = Math.PI / 2;
+const o_controls = new OrbitControls(o_camera, o_renderer.domElement);
+o_controls.enableDamping = true;
+o_controls.dampingFactor = 0.05;
+o_controls.screenSpacePanning = false;
+o_controls.maxPolarAngle = Math.PI / 2;
 
-// Load FBX model
-let model;
-const loader = new GLTFLoader();
-loader.load('./3d_files/Skelet200k.glb', function (gltf) {
-    model = gltf.scene;
-    window.model = model;
-    model.scale.set(0.01, 0.01, 0.01); // Scale down the model
-    scene.add(model);
+// Load GLB model
+let o_model;
+const o_loader = new GLTFLoader();
+o_loader.load('./3d_files/Skelet200k.glb', function (gltf) {
+    o_model = gltf.scene;
+    window.o_model = o_model;
+    o_model.scale.set(0.01, 0.01, 0.01); // Scale down the model
+    o_scene.add(o_model);
 }, undefined, function (error) {
     console.error(error);
 });
 
 // VR controller setup
-let controller1, controller2;
-let initialGrabPosition = new THREE.Vector3();
-let initialModelPosition = new THREE.Vector3();
-let isGrabbing = false;
+let o_controller1, o_controller2;
+let o_position_initial_controller = new THREE.Vector3();
+let o_rotation_initial_controller = new THREE.Vector3();
+let o_position_initial_model = new THREE.Vector3();
+let o_rotation_initial_model = new THREE.Vector3();
+let b_is_grabbing = false;
 
-function initControllers() {
-    controller1 = renderer.xr.getController(0);
-    controller2 = renderer.xr.getController(1);
-    scene.add(controller1);
-    scene.add(controller2);
+function init_controllers() {
+    o_controller1 = o_renderer.xr.getController(0);
+    o_controller2 = o_renderer.xr.getController(1);
+    o_scene.add(o_controller1);
+    o_scene.add(o_controller2);
 
-    const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
-    const line = new THREE.Line(geometry);
-    line.name = 'line';
-    line.scale.z = 0.05;
+    const o_geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
+    const o_line = new THREE.Line(o_geometry);
+    o_line.name = 'line';
+    o_line.scale.z = 0.05;
 
-    controller1.add(line.clone());
-    controller2.add(line.clone());
+    o_controller1.add(o_line.clone());
+    o_controller2.add(o_line.clone());
 
-    controller1.addEventListener('selectstart', onSelectStart);
-    controller1.addEventListener('selectend', onSelectEnd);
-    controller2.addEventListener('selectstart', onSelectStart);
-    controller2.addEventListener('selectend', onSelectEnd);
+    o_controller1.addEventListener('selectstart', on_select_start);
+    o_controller1.addEventListener('selectend', on_select_end);
+    o_controller2.addEventListener('selectstart', on_select_start);
+    o_controller2.addEventListener('selectend', on_select_end);
 }
 
-function onSelectStart(event) {
-    // alert('select start ');
-    isGrabbing = true;
-    initialGrabPosition = controller1.position.clone();
-    if (model) {
-        initialModelPosition = model.position.clone();
+function on_select_start(event) {
+    b_is_grabbing = true;
+    o_position_initial_controller = o_controller1.position.clone();
+    o_rotation_initial_controller = o_controller1.rotation.clone();
+    if (o_model) {
+        o_position_initial_model = o_model.position.clone();
+        o_rotation_initial_model = o_model.rotation.clone();
     }
-    console.log({ initialGrabPosition, initialModelPosition });
+    console.log({ o_position_initial_controller, o_position_initial_model });
 }
 
-function onSelectEnd(event) {
-    // alert('select end');
-    isGrabbing = false;
+function on_select_end(event) {
+    b_is_grabbing = false;
 }
 
 // Floor
-const floorGeometry = new THREE.PlaneGeometry(100, 100);
-const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x808080 });
-const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-floor.rotation.x = -Math.PI / 2;
-floor.position.y = -0.5;
-scene.add(floor);
+const o_geometry_floor = new THREE.PlaneGeometry(100, 100);
+const o_material_floor = new THREE.MeshStandardMaterial({ color: 0x808080 });
+const o_floor = new THREE.Mesh(o_geometry_floor, o_material_floor);
+o_floor.rotation.x = -Math.PI / 2;
+o_floor.position.y = -0.5;
+o_scene.add(o_floor);
 
 // Skybox
-const skyGeometry = new THREE.SphereGeometry(500, 60, 40);
-const skyMaterial = new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide }); // Light blue color
-const sky = new THREE.Mesh(skyGeometry, skyMaterial);
-scene.add(sky);
+const o_geometry_sky = new THREE.SphereGeometry(500, 60, 40);
+const o_material_sky = new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide }); // Light blue color
+const o_sky = new THREE.Mesh(o_geometry_sky, o_material_sky);
+o_scene.add(o_sky);
 
 // Initialize Stats.js
-const stats = new Stats();
-document.body.appendChild(stats.dom);
+const o_stats = new Stats();
+document.body.appendChild(o_stats.dom);
 
 // Animation loop
-renderer.setAnimationLoop(function () {
-    stats.begin(); // Start measuring
-    if (model) {
-        model.rotation.y += 0.001; // Adjust the rotation speed as needed
+o_renderer.setAnimationLoop(function () {
+    o_stats.begin(); // Start measuring
 
-        if (isGrabbing) {
-            const controllerPosition = controller1.position;
-            const delta = new THREE.Vector3().subVectors(controllerPosition, initialGrabPosition);
-            console.log({
-                controllerPosition,
-                initialGrabPosition,
-                initialModelPosition,
-                delta,
-            });
-            model.position.set(
-                initialModelPosition.x + delta.x,
-                initialModelPosition.y + delta.y,
-                initialModelPosition.z + delta.z,
+    if (o_model) {
+        // o_model.rotation.y += 0.001; // Adjust the rotation speed as needed
+
+        if (b_is_grabbing) {
+            const o_delta_translation = new THREE.Vector3().subVectors(o_controller1.position, o_position_initial_controller);
+            const o_delta_rotation = new THREE.Vector3().subVectors(o_controller1.rotation, o_rotation_initial_controller);
+
+            o_model.position.set(
+                o_position_initial_model.x + o_delta_translation.x,
+                o_position_initial_model.y + o_delta_translation.y,
+                o_position_initial_model.z + o_delta_translation.z,
+            );
+            o_model.rotation.set(
+                o_rotation_initial_controller.x + o_delta_rotation.x,
+                o_rotation_initial_controller.y + o_delta_rotation.y,
+                o_rotation_initial_controller.z + o_delta_rotation.z,
             );
         }
     }
 
-    controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
+    o_controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
 
-    renderer.render(scene, camera);
-    stats.end(); // End measuring
-
+    o_renderer.render(o_scene, o_camera);
+    o_stats.end(); // End measuring
 });
 
 // Handle window resize
 window.addEventListener('resize', function () {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    o_camera.aspect = window.innerWidth / window.innerHeight;
+    o_camera.updateProjectionMatrix();
+    o_renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-initControllers();
+init_controllers();
