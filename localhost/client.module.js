@@ -100,6 +100,7 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 // import { Stats } from "./stats.module.js";
 
 // Scene
@@ -133,11 +134,31 @@ o_controls.dampingFactor = 0.05;
 o_controls.screenSpacePanning = false;
 o_controls.maxPolarAngle = Math.PI / 2;
 
-// Load GLB model
+// Raycaster setup
+const o_raycaster = new THREE.Raycaster();
+const o_mouse = new THREE.Vector2();
+
+// Load FBX model
 let o_model;
-const o_loader = new GLTFLoader();
-o_loader.load('./3d_files/Skelet200k.glb', function (gltf) {
-    o_model = gltf.scene;
+const o_loader = new FBXLoader();
+o_loader.load('./3d_files/MuscularSystem100_decimated.fbx', function (o_object) {
+    o_object.traverse(function (o_child) {
+        if (o_child.isMesh) {
+            const o_material = new THREE.MeshStandardMaterial({ color: new THREE.Color(Math.random(), Math.random(), Math.random()), vertexColors: true });
+            o_child.material = o_material;
+            
+            const geometry = o_child.geometry;
+            const position = geometry.attributes.position;
+            const colors = [];
+
+            for (let i = 0; i < position.count; i++) {
+                colors.push(Math.random(), Math.random(), Math.random());
+            }
+
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        }
+    });
+    o_model = o_object;
     window.o_model = o_model;
     o_model.scale.set(0.01, 0.01, 0.01); // Scale down the model
     o_scene.add(o_model);
@@ -152,6 +173,7 @@ let o_rotation_initial_controller = new THREE.Vector3();
 let o_position_initial_model = new THREE.Vector3();
 let o_rotation_initial_model = new THREE.Vector3();
 let b_is_grabbing = false;
+let o_intersected = null;
 
 function init_controllers() {
     o_controller1 = o_renderer.xr.getController(0);
@@ -171,6 +193,9 @@ function init_controllers() {
     o_controller1.addEventListener('selectend', on_select_end);
     o_controller2.addEventListener('selectstart', on_select_start);
     o_controller2.addEventListener('selectend', on_select_end);
+
+    o_controller1.addEventListener('squeezestart', on_squeeze_start);
+    o_controller2.addEventListener('squeezestart', on_squeeze_start);
 }
 
 function on_select_start(event) {
@@ -186,6 +211,27 @@ function on_select_start(event) {
 
 function on_select_end(event) {
     b_is_grabbing = false;
+}
+
+function on_squeeze_start(event) {
+    if (o_intersected) {
+        o_intersected.object.visible = false; // Hide the intersected mesh
+    }
+}
+
+function highlight_intersected_face(intersected) {
+    if (o_intersected !== intersected) {
+        if (o_intersected) {
+            o_intersected.object.material.color.set(o_intersected.currentColor);
+            o_intersected.object.material.needsUpdate = true;
+        }
+        if (intersected) {
+            intersected.currentColor = intersected.object.material.color.getHex();
+            intersected.object.material.color.setHex(0xff0000); // Highlight color
+            intersected.object.material.needsUpdate = true;
+        }
+        o_intersected = intersected;
+    }
 }
 
 // Floor
@@ -223,10 +269,25 @@ o_renderer.setAnimationLoop(function () {
                 o_position_initial_model.z + o_delta_translation.z,
             );
             o_model.rotation.set(
-                o_rotation_initial_controller.x + o_delta_rotation.x,
-                o_rotation_initial_controller.y + o_delta_rotation.y,
-                o_rotation_initial_controller.z + o_delta_rotation.z,
+                o_rotation_initial_model.x + o_delta_rotation.x,
+                o_rotation_initial_model.y + o_delta_rotation.y,
+                o_rotation_initial_model.z + o_delta_rotation.z,
             );
+        }
+
+        // Update raycaster to use the controller's position and direction
+        const o_controller1_world_position = new THREE.Vector3();
+        const o_controller1_world_direction = new THREE.Vector3();
+        o_controller1.getWorldPosition(o_controller1_world_position);
+        o_controller1.getWorldDirection(o_controller1_world_direction);
+
+        o_raycaster.set(o_controller1_world_position, o_controller1_world_direction);
+
+        const intersects = o_raycaster.intersectObject(o_model, true);
+        if (intersects.length > 0) {
+            highlight_intersected_face(intersects[0]);
+        } else {
+            highlight_intersected_face(null);
         }
     }
 
