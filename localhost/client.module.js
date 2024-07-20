@@ -100,6 +100,7 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+// import { Stats } from "./stats.module.js";
 
 // Scene
 const scene = new THREE.Scene();
@@ -199,10 +200,15 @@ const skyMaterial = new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.B
 const sky = new THREE.Mesh(skyGeometry, skyMaterial);
 scene.add(sky);
 
+// Initialize Stats.js
+const stats = new Stats();
+document.body.appendChild(stats.dom);
+
 // Animation loop
 renderer.setAnimationLoop(function () {
+    stats.begin(); // Start measuring
     if (model) {
-        model.rotation.y += 0.01; // Adjust the rotation speed as needed
+        model.rotation.y += 0.001; // Adjust the rotation speed as needed
 
         if (isGrabbing) {
             const controllerPosition = controller1.position;
@@ -224,6 +230,8 @@ renderer.setAnimationLoop(function () {
     controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
 
     renderer.render(scene, camera);
+    stats.end(); // End measuring
+
 });
 
 // Handle window resize
