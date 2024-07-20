@@ -99,6 +99,7 @@ import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // Scene
 const scene = new THREE.Scene();
@@ -133,9 +134,9 @@ controls.maxPolarAngle = Math.PI / 2;
 
 // Load FBX model
 let model;
-const loader = new FBXLoader();
-loader.load('./3d_files/SkeletalSystem100.fbx', function (object) {
-    model = object;
+const loader = new GLTFLoader();
+loader.load('./3d_files/Skelet200k.glb', function (gltf) {
+    model = gltf.scene;
     window.model = model;
     model.scale.set(0.01, 0.01, 0.01); // Scale down the model
     scene.add(model);
@@ -170,7 +171,7 @@ function initControllers() {
 }
 
 function onSelectStart(event) {
-    alert('select start ');
+    // alert('select start ');
     isGrabbing = true;
     initialGrabPosition = controller1.position.clone();
     if (model) {
@@ -180,7 +181,7 @@ function onSelectStart(event) {
 }
 
 function onSelectEnd(event) {
-    alert('select end');
+    // alert('select end');
     isGrabbing = false;
 }
 
