@@ -89,7 +89,7 @@ let f_handler = async function(o_request){
 
 let s_name_host = Deno.hostname(); // or maybe some ip adress 112.35.8.13
 let b_development = s_name_host != 'the_server_name_here';
-let s_name_host2 = (b_development) ? 'localhost': s_name_host;
+s_name_host = (b_development) ? 'localhost': s_name_host;
 // let o_info_certificates = {
 //     s_path_certificate_file: './self_signed_cert_5e232977-b5a6-4f9b-861c-0818f43a3da4.crt',
 //     s_path_key_file: './self_signed_key_5e232977-b5a6-4f9b-861c-0818f43a3da4.key'
@@ -99,7 +99,7 @@ await f_websersocket_serve(
         {
             n_port: 8080,
             b_https: false,
-            s_hostname: s_name_host,
+            // s_hostname: s_name_host,
             f_v_before_return_response: f_handler
         },
         ...[
@@ -107,7 +107,7 @@ await f_websersocket_serve(
                 // ...o_info_certificates,
                 n_port: 8443,
                 b_https: true,
-                s_hostname: s_name_host,
+                // s_hostname: s_name_host,
                 f_v_before_return_response: f_handler
             } : false
         ].filter(v=>v)   
