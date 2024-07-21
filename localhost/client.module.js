@@ -30,33 +30,31 @@ function disposeMaterial(material) {
     }
     material.dispose();
 }
-function loadModel(path, onLoad) {
-    const loader = new FBXLoader();
-    loader.load(path, object => {
-        object.traverse(child => {
-            if (child.isMesh) {
-                const material = new THREE.MeshStandardMaterial({
-                    color: new THREE.Color(Math.random(), Math.random(), Math.random()),
-                    vertexColors: true
-                });
-                child.material = material;
-
-                const geometry = child.geometry;
-                const position = geometry.attributes.position;
-                const colors = [];
-
-                for (let i = 0; i < position.count; i++) {
-                    colors.push(Math.random(), Math.random(), Math.random());
+let f_loadModel = function(path, onLoad) {
+        const loader = new FBXLoader();
+        loader.load(path, object => {
+            object.traverse(child => {
+                if (child.isMesh) {
+                    const material = new THREE.MeshStandardMaterial({
+                        color: new THREE.Color(0.8, 0.8, 0.8), // Light gray color
+                        metalness: 0.5, // Adjust for realistic metal look
+                        roughness: 0.5 // Adjust for realistic surface roughness
+                    });
+                    child.material = material;
+    
+                    // Optional: Apply a subtle variation to distinguish parts
+                    const hsl = material.color.getHSL({ h: 0, s: 0, l: 0 });
+                    const hueVariation = 0.02 * (Math.random() - 0.5); // Small hue variation
+                    hsl.h += hueVariation;
+                    material.color.setHSL(hsl.h, hsl.s, hsl.l);
                 }
-
-                geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-            }
+            });
+            onLoad(object);
+        }, undefined, error => {
+            console.error(error);
         });
-        onLoad(object);
-    }, undefined, error => {
-        console.error(error);
-    });
-}
+    }
+    
 
 // Determine the current domain
 const s_hostname = window.location.hostname;
@@ -82,7 +80,23 @@ let a_s_path_model = [
 let a_s_name_model = a_s_path_model.map(s=>{
     return s.split('/').pop().split('.').shift().split('_').shift()
 })
+let a_s_path_skybox_texture = [
+    './textures/autumn_field_puresky_4k.png',
+    './textures/autumn_ground_4k.png',
+    './textures/beach_cloudy_bridge_4k.png',
+    './textures/belfast_sunset_4k.png',
+    './textures/dikhololo_night_2k.png',
+    './textures/lakeside_4k.png',
+    './textures/neon_photostudio_4k.png',
+    './textures/rocky_ridge_4k.png',
+    './textures/rosendal_plains_1_4k.png',
+    './textures/winter_river_4k.png',
+];
+let a_s_name_skybox_texture = a_s_path_skybox_texture.map(s=>s.split('/').pop().split('.').shift());
 let o_state = {
+    a_s_path_skybox_texture,
+    a_s_name_skybox_texture,
+    s_name_skybox_texture: a_s_name_skybox_texture[0],
     a_s_path_model,
     a_s_name_model, 
     s_name_model: a_s_name_model[0],
@@ -105,8 +119,8 @@ let o_state = {
     a_o_controller_selectend: [],
     a_o_controller_squeezestart: [],
     a_o_controller_squeezeend: []
-}
-window.o_state = o_state
+};
+window.o_state = o_state;
 
 
 import * as THREE from 'three';
@@ -136,13 +150,22 @@ document.body.appendChild(o_state.o_renderer.domElement);
 // VR Button
 document.body.appendChild(VRButton.createButton(o_state.o_renderer));
 
-// Lights
-o_state.o_light_ambient = new THREE.AmbientLight(0x404040, 2); // Soft white ambient light
+// Adjust the ambient light
+o_state.o_light_ambient = new THREE.AmbientLight(0x404040, 0.5); // Softer ambient light
 o_state.o_scene.add(o_state.o_light_ambient);
 
-o_state.o_light_directional = new THREE.DirectionalLight(0xffffff, 1);
+// Adjust the directional light
+o_state.o_light_directional = new THREE.DirectionalLight(0xffffff, 0.8);
 o_state.o_light_directional.position.set(5, 5, 5);
 o_state.o_scene.add(o_state.o_light_directional);
+
+// Headlamp (Spotlight attached to the camera)
+const o_spotlight = new THREE.SpotLight(0xffffff, 0.5); // Reduce intensity
+o_spotlight.position.set(0, 0, 0);
+o_spotlight.target.position.set(0, 0, -1);
+o_state.o_camera.add(o_spotlight);
+o_state.o_camera.add(o_spotlight.target);
+o_state.o_scene.add(o_state.o_camera);
 
 // Controls
 o_state.o_controls = new OrbitControls(o_state.o_camera, o_state.o_renderer.domElement);
@@ -155,6 +178,41 @@ o_state.o_controls.maxPolarAngle = Math.PI / 2;
 o_state.o_raycaster = new THREE.Raycaster();
 o_state.o_mouse = new THREE.Vector2();
 
+// Floor
+// const o_geometry_floor = new THREE.PlaneGeometry(100, 100);
+// const o_material_floor = new THREE.MeshStandardMaterial({ color: 0x808080 });
+// const o_floor = new THREE.Mesh(o_geometry_floor, o_material_floor);
+// o_floor.rotation.x = -Math.PI / 2;
+// o_floor.position.y = -0.5;
+// o_state.o_scene.add(o_floor);
+
+// Add Grid Helper
+// const gridHelper = new THREE.GridHelper(100, 100);
+// o_state.o_scene.add(gridHelper);
+
+
+function f_change_skybox_texture() {
+    let n_idx = o_state.a_s_name_skybox_texture.indexOf(o_state.s_name_skybox_texture);
+    let s_path = o_state.a_s_path_skybox_texture[n_idx];
+    const loader = new THREE.TextureLoader();
+    loader.load(s_path, function(texture) {
+        const o_geometry_sky = new THREE.SphereGeometry(500, 60, 40);
+        const o_material_sky = new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide });
+        
+        // Remove old skybox if it exists
+        if (o_state.o_sky) {
+            o_state.o_scene.remove(o_state.o_sky);
+        }
+        
+        // Add new skybox
+        o_state.o_sky = new THREE.Mesh(o_geometry_sky, o_material_sky);
+        o_state.o_scene.add(o_state.o_sky);
+    });
+}
+
+f_change_skybox_texture('./textures/dikhololo_night_2k.png')
+
+
 let f_update_model = function(){
 
     let n_idx = o_state.a_s_name_model.indexOf(o_state.s_name_model);
@@ -163,7 +221,7 @@ let f_update_model = function(){
     removeModel(o_state.o_model);
 
     // Load the new model
-    loadModel(o_state.a_s_path_model[n_idx], o_model_new => {
+    f_loadModel(o_state.a_s_path_model[n_idx], o_model_new => {
         // Set the new model's scale
         o_model_new.scale.set(0.01, 0.01, 0.01);
         // Add the new model to the scene
@@ -282,19 +340,6 @@ let f_highlight_intersected_face = function(intersected) {
     }
 }
 
-// Floor
-const o_geometry_floor = new THREE.PlaneGeometry(100, 100);
-const o_material_floor = new THREE.MeshStandardMaterial({ color: 0x808080 });
-const o_floor = new THREE.Mesh(o_geometry_floor, o_material_floor);
-o_floor.rotation.x = -Math.PI / 2;
-o_floor.position.y = -0.5;
-o_state.o_scene.add(o_floor);
-
-// Skybox
-const o_geometry_sky = new THREE.SphereGeometry(500, 60, 40);
-const o_material_sky = new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide }); // Light blue color
-const o_sky = new THREE.Mesh(o_geometry_sky, o_material_sky);
-o_state.o_scene.add(o_sky);
 
 // Initialize Stats.js
 o_state.o_stats = new Stats();
@@ -306,9 +351,13 @@ let f_on_change_gui = function(){
 const o_gui = new GUI( { width: 300 } );
 o_gui.add( o_state, 'n_number', 0.0, 1.0 ).onChange( f_on_change_gui );
 o_gui.add( o_state, 's_name_model', o_state.a_s_name_model).onChange( ()=>{
-    
     f_update_model();
 });
+o_gui.add( o_state, 's_name_skybox_texture', o_state.a_s_name_skybox_texture).onChange( ()=>{
+    f_change_skybox_texture();
+});
+
+a_s_name_skybox_texture
 // o_gui.domElement.style.visibility = 'hidden';
 
 
@@ -381,3 +430,5 @@ window.addEventListener('resize', function () {
     o_state.o_camera.updateProjectionMatrix();
     o_state.o_renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+f_update_model();
